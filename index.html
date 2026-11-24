@@ -1822,24 +1822,34 @@ async function viewEnviar(m) {
   const opts = S.setores.map((s) => '<option value="' + s.id + '">' + esc(SETORES[s.id] || s.nome) + '</option>').join('');
   m.innerHTML = '<h2 style="margin-top:0">Enviar relatório</h2><div class="card"><p style="margin-top:0"><b>Upload e aprovação:</b> o usuário envia o .xls só dos setores dele e o envio fica pendente. Você, o ADM 2 ou o ADM 3 aprova antes de entrar no consolidado.</p>' +
     '<p>Após o envio, <b>só você</b> verá a prévia, marcada como <i>aguardando aprovação</i>. Os demais usuários continuam vendo a última versão aprovada.</p>' +
-    '<div class="row"><select id="tp"><option value="bens">Relatório de Bens Imobilizado</option><option value="baixas">Planilha de baixas</option></select><input type="file" id="fl" accept=".xls,.xlsx"><button class="btn" id="go">Enviar</button></div><div id="msg"></div></div><h3>Meus envios</h3><div id="meus"></div>';
+    '<div class="row"><select id="tp"><option value="bens">Relatório de Bens Imobilizado</option><option value="baixas">Planilha de baixas</option></select><input type="file" id="fl" accept=".xls,.xlsx" multiple><button class="btn" id="go">Enviar</button></div><div id="msg"></div></div><h3>Meus envios</h3><div id="meus"></div>';
   
   $('#go').onclick = async () => {
-    const f = $('#fl').files[0], tipo = $('#tp').value, ms = $('#msg');
-    if (!f) { ms.innerHTML = '<div class="msg err">Escolha um arquivo.</div>'; return; }
+    const fs = Array.from($('#fl').files), tipo = $('#tp').value, ms = $('#msg');
+    if (!fs.length) { ms.innerHTML = '<div class="msg err">Escolha um ou mais arquivos.</div>'; return; }
     $('#go').disabled = true;
-    try {
-      ms.innerHTML = '<div class="msg ok">Lendo o arquivo…</div>';
-      if (tipo === 'bens') { const rl = await lerBens(f); if (!rl.itens.length) throw new Error('Nenhum item encontrado no arquivo.'); if (!S.setores.some((x) => x.id === rl.setor)) throw new Error('Você não tem acesso ao setor ' + (SETORES[rl.setor] || rl.setor) + ' deste relatório.'); ms.innerHTML = '<div class="msg ok">Relatório do setor ' + esc(SETORES[rl.setor]) + ' · posição ' + esc(rl.pos || '—') + ' · ' + num(rl.itens.length) + ' bens · totais conferem com o rodapé.</div>'; await gravar(rl.setor, 'bens', f.name, rl.itens, ms); }
-      else {
-        const it = await lerBaixas(f); if (!it.length) throw new Error('Nenhuma baixa encontrada.');
-        const g = agrupa(it, (x) => slugSetor(x.setor_nome)), ok = Object.keys(g).filter((k) => S.setores.some((s) => s.id === k));
-        for (const k of ok) await gravar(k, 'baixas', f.name, g[k], ms);
-        const fora = Object.keys(g).filter((k) => !ok.includes(k));
-        if (fora.length) ms.innerHTML += '<div class="msg err">Setores sem permissão ignorados: ' + esc(fora.join(', ')) + '</div>';
-      }
-      ms.innerHTML = '<div class="msg ok">Enviado! A prévia está disponível só para você até a aprovação.</div>'; meusEnvios();
-    } catch (e) { ms.innerHTML = '<div class="msg err">' + esc(e.message || e) + '</div>'; }
+    const log = [];
+    const mostra = (extra) => { ms.innerHTML = log.map((l) => '<div class="msg ' + l[0] + '">' + l[1] + '</div>').join('') + (extra ? '<div class="msg ok">' + extra + '</div>' : ''); };
+    for (let n = 0; n < fs.length; n++) {
+      const f = fs[n], pre = '(' + (n + 1) + '/' + fs.length + ') ';
+      try {
+        mostra(pre + 'Lendo ' + esc(f.name) + '…');
+        if (tipo === 'bens') {
+          const rl = await lerBens(f); if (!rl.itens.length) throw new Error('Nenhum item encontrado.');
+          if (!S.setores.some((x) => x.id === rl.setor)) throw new Error('Você não tem acesso ao setor ' + (SETORES[rl.setor] || rl.setor) + '.');
+          await gravar(rl.setor, 'bens', f.name, rl.itens, {set innerHTML(v) { mostra(pre + esc(SETORES[rl.setor]) + ': ' + v.replace(/<[^>]+>/g, '')); }});
+          log.push(['ok', esc(SETORES[rl.setor]) + ' · posição ' + esc(rl.pos || '—') + ' · ' + num(rl.itens.length) + ' bens · totais conferem com o rodapé. Enviado.']);
+        } else {
+          const it = await lerBaixas(f); if (!it.length) throw new Error('Nenhuma baixa encontrada.');
+          const g = agrupa(it, (x) => slugSetor(x.setor_nome)), ok = Object.keys(g).filter((k) => S.setores.some((s) => s.id === k));
+          for (const k of ok) await gravar(k, 'baixas', f.name, g[k], {set innerHTML(v) { mostra(pre + v.replace(/<[^>]+>/g, '')); }});
+          log.push(['ok', esc(f.name) + ': baixas enviadas (' + ok.length + ' setores).']);
+          const fora = Object.keys(g).filter((k) => !ok.includes(k));
+          if (fora.length) log.push(['err', 'Setores sem permissão ignorados: ' + esc(fora.join(', '))]);
+        }
+      } catch (e) { log.push(['err', esc(f.name) + ': ' + esc(e.message || e)]); }
+    }
+    mostra('Concluído. As prévias ficam visíveis só para você até a aprovação.'); meusEnvios();
     $('#go').disabled = false;
   };
   meusEnvios();

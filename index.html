@@ -1648,7 +1648,7 @@ function viewLogin(msg) {
   tela('<div class="ax-center"><div class="ax-box">' + LOGO + '<h1>Regional SP</h1><div class="sub">Painel de Ativo Imobilizado — acesso restrito</div>' +
     '<label>E-mail</label><input id="em" type="email" autocomplete="username"><label>Senha</label><input id="pw" type="password" autocomplete="current-password">' +
     '<div style="margin-top:14px"><button class="ax-btn" id="go" style="width:100%">Entrar</button></div>' +
-    '<div style="margin-top:10px;text-align:center"><a class="ax-lnk" id="esq">Esqueci minha senha</a></div><div id="m" class="ax-msg ' + (msg ? 'ok' : '') + '">' + esc(msg || '') + '</div></div></div>');
+    '<div style="margin-top:10px;text-align:center"><a class="ax-lnk" id="esq">Esqueci minha senha</a> &nbsp;·&nbsp; <a class="ax-lnk" id="pri">Primeiro acesso</a></div><div id="m" class="ax-msg ' + (msg ? 'ok' : '') + '">' + esc(msg || '') + '</div></div></div>');
   const m = (t, c) => { const e = $('#m'); e.className = 'ax-msg ' + c; e.textContent = t; };
   $('#go').onclick = async () => {
     const em = $('#em').value.trim(), pw = $('#pw').value; if (!em || !pw) return m('Informe e-mail e senha.', 'err');
@@ -1659,10 +1659,31 @@ function viewLogin(msg) {
     await entrar();
   };
   $('#pw').onkeydown = (e) => { if (e.key === 'Enter') $('#go').click(); };
+  $('#pri').onclick = () => viewPrimeiro();
   $('#esq').onclick = async () => {
     const em = $('#em').value.trim(); if (!em) return m('Digite seu e-mail acima e clique novamente.', 'err');
     await sb.auth.resetPasswordForEmail(em, {redirectTo: location.origin + location.pathname});
     m('Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha.', 'ok');
+  };
+}
+function viewPrimeiro() {
+  wm(false);
+  tela('<div class="ax-center"><div class="ax-box">' + LOGO + '<h1>Primeiro acesso</h1><div class="sub">Use o código que o administrador lhe enviou.</div><label>E-mail</label><input id="e1" type="email" autocomplete="username"><label>Código de primeiro acesso</label><input id="c1" autocomplete="off" style="text-transform:uppercase"><label>Crie sua senha (mín. 8 caracteres)</label><input id="p1" type="password" autocomplete="new-password"><label>Repita a senha</label><input id="p2" type="password" autocomplete="new-password">' +
+    '<div style="margin-top:14px"><button class="ax-btn" id="sv" style="width:100%">Criar acesso</button></div><div style="margin-top:10px;text-align:center"><a class="ax-lnk" id="vl">Voltar</a></div><div id="m" class="ax-msg"></div></div></div>');
+  const m = (t, c) => { const e = $('#m'); e.className = 'ax-msg ' + c; e.textContent = t; };
+  $('#vl').onclick = () => viewLogin();
+  $('#sv').onclick = async () => {
+    const em = $('#e1').value.trim().toLowerCase(), cod = $('#c1').value.trim(), a = $('#p1').value, b = $('#p2').value;
+    if (!em || !cod) return m('Informe o e-mail e o código.', 'err');
+    if (a.length < 8) return m('A senha precisa ter ao menos 8 caracteres.', 'err');
+    if (a !== b) return m('As senhas não conferem.', 'err');
+    $('#sv').disabled = true; m('Criando acesso…', 'ok');
+    let r; try { r = await sb.functions.invoke('acesso', {body: {acao: 'ativar', email: em, codigo: cod, senha: a}}); } catch (e) { r = {error: e}; }
+    let msg = r.data && r.data.error; if (!msg && r.error) { try { msg = (await r.error.context.json()).error; } catch (x) { msg = 'Não foi possível criar o acesso.'; } }
+    if (msg) { $('#sv').disabled = false; return m(msg, 'err'); }
+    const {error} = await sb.auth.signInWithPassword({email: em, password: a});
+    if (error) { $('#sv').disabled = false; return m('Acesso criado. Volte e entre com e-mail e senha.', 'ok'); }
+    await entrar();
   };
 }
 function viewNovaSenha() {
@@ -1905,8 +1926,8 @@ async function viewAcessos(m) {
   m.innerHTML = '<h2 style="margin-top:0">Gestão de acessos</h2><div id="ac">Carregando…</div>';
   const [{data: pf}, {data: ps}] = await Promise.all([sb.from('perfis').select('*').order('papel').order('email'), sb.from('perfil_setores').select('*')]);
   const pa = S.perfil.papel === 'admin1', set = (id) => (ps || []).filter((x) => x.perfil_id === id).map((x) => x.setor_id), podeEd = (p) => pa || p.papel === 'usuario';
-  $('#ac').innerHTML = '<div class="card"><b>Novo acesso</b><div class="row" style="margin-top:8px"><input id="ne" type="email" placeholder="e-mail" style="min-width:240px"><input id="nn" placeholder="nome"><select id="np"><option value="usuario">Consulta</option>' + (pa ? '<option value="admin">Administrador (ADM 2/3)</option>' : '') + '</select></div><div class="row"><label><input type="checkbox" id="nt"> Todos os setores</label></div><div class="row" id="nss">' + Object.keys(SETORES).map((k) => '<label><input type="checkbox" value="' + k + '"> ' + esc(SETORES[k]) + '</label>').join(' ') + '</div><button class="btn" id="add">Cadastrar e enviar convite</button><div id="am"></div></div>' +
-    '<div class="scroll"><table><tr><th>E-mail</th><th>Nome</th><th>Papel</th><th>Setores</th><th>Situação</th><th></th></tr>' + (pf || []).map((p) => '<tr><td>' + esc(p.email) + '</td><td>' + esc(p.nome || '') + '</td><td>' + (p.papel === 'admin1' ? 'ADM 1' : p.papel === 'admin' ? 'Administrador' : 'Consulta') + '</td><td>' + (p.papel !== 'usuario' || p.todos_setores ? 'Todos' : esc(set(p.id).map((x) => SETORES[x] || x).join(', ') || '—')) + '</td><td>' + (p.ativo ? '<span class="tag a">Ativo</span>' : '<span class="tag r">Desativado</span>') + '</td><td>' + (podeEd(p) && p.papel !== 'admin1' ? '<a class="lnk" data-ed="' + p.id + '">editar</a> · <a class="lnk" data-at="' + p.id + '" data-v="' + p.ativo + '">' + (p.ativo ? 'desativar' : 'ativar') + '</a> · <a class="lnk" data-cv="' + esc(p.email) + '">reenviar convite</a>' : '') + '</td></tr>').join('') + '</table></div>';
+  $('#ac').innerHTML = '<div class="card"><b>Novo acesso</b><div class="row" style="margin-top:8px"><input id="ne" type="email" placeholder="e-mail" style="min-width:240px"><input id="nn" placeholder="nome"><select id="np"><option value="usuario">Consulta</option>' + (pa ? '<option value="admin">Administrador (ADM 2/3)</option>' : '') + '</select></div><div class="row"><label><input type="checkbox" id="nt"> Todos os setores</label></div><div class="row" id="nss">' + Object.keys(SETORES).map((k) => '<label><input type="checkbox" value="' + k + '"> ' + esc(SETORES[k]) + '</label>').join(' ') + '</div><button class="btn" id="add">Cadastrar e gerar código de acesso</button><div id="am"></div></div>' +
+    '<div class="scroll"><table><tr><th>E-mail</th><th>Nome</th><th>Papel</th><th>Setores</th><th>Situação</th><th></th></tr>' + (pf || []).map((p) => '<tr><td>' + esc(p.email) + '</td><td>' + esc(p.nome || '') + '</td><td>' + (p.papel === 'admin1' ? 'ADM 1' : p.papel === 'admin' ? 'Administrador' : 'Consulta') + '</td><td>' + (p.papel !== 'usuario' || p.todos_setores ? 'Todos' : esc(set(p.id).map((x) => SETORES[x] || x).join(', ') || '—')) + '</td><td>' + (p.ativo ? '<span class="tag a">Ativo</span>' : '<span class="tag r">Desativado</span>') + '</td><td>' + (podeEd(p) && p.papel !== 'admin1' ? '<a class="lnk" data-ed="' + p.id + '">editar</a> · <a class="lnk" data-at="' + p.id + '" data-v="' + p.ativo + '">' + (p.ativo ? 'desativar' : 'ativar') + '</a> · <a class="lnk" data-cv="' + esc(p.email) + '">gerar código</a>' : '') + '</td></tr>').join('') + '</table></div>';
   const msg = (t, c) => { $('#am').innerHTML = '<div class="msg ' + c + '">' + esc(t) + '</div>'; };
   $('#add').onclick = async () => {
     const e = $('#ne').value.trim().toLowerCase(); if (!e) return msg('Informe o e-mail.', 'err');
@@ -1914,19 +1935,20 @@ async function viewAcessos(m) {
     if ($('#np').value === 'usuario' && !todos && !sel2.length) return msg('Escolha ao menos um setor ou marque "Todos".', 'err');
     const {error} = await sb.rpc('salvar_perfil', {p_email: e, p_nome: $('#nn').value.trim(), p_papel: $('#np').value, p_todos: todos, p_setores: sel2, p_ativo: true});
     if (error) return msg(error.message, 'err');
-    const r = await convidar(e); msg(r, r.startsWith('Convite') ? 'ok' : 'err'); setTimeout(() => viewAcessos(m), 1800);
+    const r = await convidar(e); msg(r, r.startsWith('Código') ? 'ok' : 'err');
   };
   document.querySelectorAll('#adm [data-at]').forEach((a) => { a.onclick = async () => { const p = pf.find((x) => x.id === a.dataset.at);
     const {error} = await sb.rpc('salvar_perfil', {p_email: p.email, p_nome: p.nome || '', p_papel: p.papel, p_todos: p.todos_setores, p_setores: set(p.id), p_ativo: a.dataset.v !== 'true'}); if (error) alert(error.message); viewAcessos(m); }; });
-  document.querySelectorAll('#adm [data-cv]').forEach((a) => { a.onclick = async () => alert(await convidar(a.dataset.cv)); });
+  document.querySelectorAll('#adm [data-cv]').forEach((a) => { a.onclick = async () => { prompt('Copie o código de primeiro acesso:', (await convidar(a.dataset.cv)).replace(/^Código de primeiro acesso de /, '')); }; });
   document.querySelectorAll('#adm [data-ed]').forEach((a) => { a.onclick = async () => { const p = pf.find((x) => x.id === a.dataset.ed), atual = set(p.id);
     const novo = prompt('Setores liberados (separe por vírgula) ou escreva TODOS.\nOpções: ' + Object.keys(SETORES).join(', '), p.todos_setores ? 'TODOS' : atual.join(',')); if (novo === null) return;
     const todos = novo.trim().toUpperCase() === 'TODOS', lista = todos ? [] : novo.split(',').map((x) => x.trim()).filter((x) => SETORES[x]);
     const {error} = await sb.rpc('salvar_perfil', {p_email: p.email, p_nome: p.nome || '', p_papel: p.papel, p_todos: todos, p_setores: lista, p_ativo: p.ativo}); if (error) alert(error.message); viewAcessos(m); }; });
 }
 async function convidar(email) {
-  const {data, error} = await sb.functions.invoke('convidar', {body: {email, redirectTo: location.origin + location.pathname}});
-  if (error || (data && data.error)) return 'Cadastro salvo, mas o convite falhou: ' + ((data && data.error) || error.message);
-  return 'Convite enviado para ' + email + '.';
+  let r; try { r = await sb.functions.invoke('acesso', {body: {acao: 'gerar', email}}); } catch (e) { r = {error: e}; }
+  let msg = r.data && r.data.error; if (!msg && r.error) { try { msg = (await r.error.context.json()).error; } catch (x) { msg = r.error.message; } }
+  if (msg) return 'Não foi possível gerar o código: ' + msg;
+  return 'Código de primeiro acesso de ' + email + ': ' + r.data.codigo + ' (vale 7 dias). Envie ao usuário o código e o link do painel; ele clica em "Primeiro acesso" e cria a senha.';
 }
 </script></body></html>

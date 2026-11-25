@@ -1946,9 +1946,12 @@ async function viewAcessos(m) {
     const {error} = await sb.rpc('salvar_perfil', {p_email: p.email, p_nome: p.nome || '', p_papel: p.papel, p_todos: todos, p_setores: lista, p_ativo: p.ativo}); if (error) alert(error.message); viewAcessos(m); }; });
 }
 async function convidar(email) {
-  let r; try { r = await sb.functions.invoke('acesso', {body: {acao: 'gerar', email}}); } catch (e) { r = {error: e}; }
-  let msg = r.data && r.data.error; if (!msg && r.error) { try { msg = (await r.error.context.json()).error; } catch (x) { msg = r.error.message; } }
-  if (msg) return 'Não foi possível gerar o código: ' + msg;
-  return 'Código de primeiro acesso de ' + email + ': ' + r.data.codigo + ' (vale 7 dias). Envie ao usuário o código e o link do painel; ele clica em "Primeiro acesso" e cria a senha.';
+  const falha = async (r) => { let m = r.data && r.data.error; if (!m && r.error) { try { m = (await r.error.context.json()).error; } catch (x) { m = r.error.message; } } return m; };
+  let r1; try { r1 = await sb.functions.invoke('convidar', {body: {email, redirectTo: location.origin + location.pathname}}); } catch (e) { r1 = {error: e}; }
+  const e1 = await falha(r1);
+  let r2; try { r2 = await sb.functions.invoke('acesso', {body: {acao: 'gerar', email}}); } catch (e) { r2 = {error: e}; }
+  const e2 = await falha(r2);
+  if (e2) return 'Não foi possível gerar o código: ' + e2;
+  return 'Código de primeiro acesso de ' + email + ': ' + r2.data.codigo + ' (vale 7 dias). ' + (e1 ? 'O e-mail de convite NÃO foi enviado; passe o código e o link ao usuário, que clica em "Primeiro acesso".' : 'O convite também foi enviado por e-mail.');
 }
 </script></body></html>

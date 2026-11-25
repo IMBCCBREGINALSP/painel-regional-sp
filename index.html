@@ -1668,21 +1668,33 @@ function viewLogin(msg) {
 }
 function viewPrimeiro() {
   wm(false);
-  tela('<div class="ax-center"><div class="ax-box">' + LOGO + '<h1>Primeiro acesso</h1><div class="sub">Use o código que o administrador lhe enviou.</div><label>E-mail</label><input id="e1" type="email" autocomplete="username"><label>Código de primeiro acesso</label><input id="c1" autocomplete="off" style="text-transform:uppercase"><label>Crie sua senha (mín. 8 caracteres)</label><input id="p1" type="password" autocomplete="new-password"><label>Repita a senha</label><input id="p2" type="password" autocomplete="new-password">' +
-    '<div style="margin-top:14px"><button class="ax-btn" id="sv" style="width:100%">Criar acesso</button></div><div style="margin-top:10px;text-align:center"><a class="ax-lnk" id="vl">Voltar</a></div><div id="m" class="ax-msg"></div></div></div>');
+  tela('<div class="ax-center"><div class="ax-box">' + LOGO + '<h1>Primeiro acesso</h1><div class="sub">Informe o e-mail cadastrado pelo administrador. Enviaremos um código para ele.</div><label>E-mail</label><input id="e1" type="email" autocomplete="username">' +
+    '<div id="st2" hidden><label>Código recebido por e-mail</label><input id="c1" autocomplete="one-time-code" inputmode="numeric"><label>Crie sua senha (mín. 8 caracteres)</label><input id="p1" type="password" autocomplete="new-password"><label>Repita a senha</label><input id="p2" type="password" autocomplete="new-password"></div>' +
+    '<div style="margin-top:14px"><button class="ax-btn" id="sv" style="width:100%">Enviar código</button></div><div style="margin-top:10px;text-align:center"><a class="ax-lnk" id="vl">Voltar</a></div><div id="m" class="ax-msg"></div></div></div>');
   const m = (t, c) => { const e = $('#m'); e.className = 'ax-msg ' + c; e.textContent = t; };
+  let etapa = 1;
   $('#vl').onclick = () => viewLogin();
   $('#sv').onclick = async () => {
-    const em = $('#e1').value.trim().toLowerCase(), cod = $('#c1').value.trim(), a = $('#p1').value, b = $('#p2').value;
-    if (!em || !cod) return m('Informe o e-mail e o código.', 'err');
-    if (a.length < 8) return m('A senha precisa ter ao menos 8 caracteres.', 'err');
-    if (a !== b) return m('As senhas não conferem.', 'err');
-    $('#sv').disabled = true; m('Criando acesso…', 'ok');
-    let r; try { r = await sb.functions.invoke('acesso', {body: {acao: 'ativar', email: em, codigo: cod, senha: a}}); } catch (e) { r = {error: e}; }
-    let msg = r.data && r.data.error; if (!msg && r.error) { try { msg = (await r.error.context.json()).error; } catch (x) { msg = 'Não foi possível criar o acesso.'; } }
-    if (msg) { $('#sv').disabled = false; return m(msg, 'err'); }
-    const {error} = await sb.auth.signInWithPassword({email: em, password: a});
-    if (error) { $('#sv').disabled = false; return m('Acesso criado. Volte e entre com e-mail e senha.', 'ok'); }
+    const em = $('#e1').value.trim().toLowerCase(); if (!em) return m('Informe o e-mail.', 'err');
+    $('#sv').disabled = true;
+    if (etapa === 1) {
+      m('Enviando código…', 'ok');
+      try { await sb.functions.invoke('preparar', {body: {email: em}}); } catch (x) {}
+      const {error} = await sb.auth.signInWithOtp({email: em, options: {shouldCreateUser: false}});
+      $('#sv').disabled = false;
+      if (error && /rate|seconds|limit/i.test(error.message)) return m('Aguarde um minuto antes de pedir outro código.', 'err');
+      etapa = 2; $('#st2').hidden = false; $('#e1').readOnly = true; $('#sv').textContent = 'Criar acesso';
+      return m('Se o e-mail estiver cadastrado, o código foi enviado. Confira a caixa de entrada e o spam.', 'ok');
+    }
+    const cod = $('#c1').value.replace(/\s/g, ''), a = $('#p1').value, b = $('#p2').value;
+    if (!cod) { $('#sv').disabled = false; return m('Digite o código recebido.', 'err'); }
+    if (a.length < 8) { $('#sv').disabled = false; return m('A senha precisa ter ao menos 8 caracteres.', 'err'); }
+    if (a !== b) { $('#sv').disabled = false; return m('As senhas não conferem.', 'err'); }
+    m('Verificando…', 'ok');
+    const v = await sb.auth.verifyOtp({email: em, token: cod, type: 'email'});
+    if (v.error) { $('#sv').disabled = false; return m('Código inválido ou expirado. Volte e peça outro.', 'err'); }
+    const u = await sb.auth.updateUser({password: a});
+    if (u.error) { $('#sv').disabled = false; return m(u.error.message, 'err'); }
     await entrar();
   };
 }

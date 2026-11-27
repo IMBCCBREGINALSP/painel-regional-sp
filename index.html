@@ -353,7 +353,7 @@ body.pia-sig{overflow:hidden}body.pia-sig>*:not(#piaSig):not(#piaWm){visibility:
   <section class="subpanel" id="conta-graf">
     <div class="chart-grid">
       <div class="chart-card">
-        <h3>Valor atual por conta</h3><div class="chart-sub">Posição: <span class="pos-txt">—</span></div>
+        <h3>Valor atual por conta</h3><div class="chart-sub" hidden>Posição: <span class="pos-txt">—</span></div>
         <div class="chart" id="ch-conta-at"><div class="plot dash-skeleton"></div><div class="tip"></div></div>
       </div>
       <div class="chart-card">
@@ -406,12 +406,12 @@ body.pia-sig{overflow:hidden}body.pia-sig>*:not(#piaSig):not(#piaWm){visibility:
         <div class="toolbar"><input type="search" id="q" placeholder="Buscar casa (código ou nome)" aria-label="Buscar casa de oração"><span class="hint">Clique numa casa para ver as contas dela e os bens, um a um</span></div>
         <div class="pivot-wrap tall"><table class="pivot" id="tb-casa">
           <thead><tr>
-            <th><button data-k="casa">Casa</button></th>
-            <th class="l"><button data-k="nome_casa">Casa de oração</button></th>
+            <th><button data-k="casa">Código</button></th>
+            <th class="l"><button data-k="nome_casa">Nome da casa de oração</button></th>
             <th><button data-k="setor">Setor</button></th>
-            <th><button data-k="qtd">Bens</button></th>
-            <th><button data-k="aquisicao">Aquisição</button></th>
-            <th><button data-k="deprec">Depreciação</button></th>
+            <th><button data-k="qtd">Qtde. bens</button></th>
+            <th><button data-k="aquisicao">Vl. aquisição</button></th>
+            <th><button data-k="deprec">Vl. depreciação</button></th>
             <th><button data-k="atual">Valor atual</button></th>
             <th><button data-k="pct_atual">% do setor</button></th>
           </tr></thead>
@@ -423,7 +423,7 @@ body.pia-sig{overflow:hidden}body.pia-sig>*:not(#piaSig):not(#piaWm){visibility:
         <div class="hint" style="margin:-4px 0 8px">Clique numa conta para ver só os bens dela</div>
         <div class="pivot-wrap"><table class="pivot" id="tb-det">
           <thead><tr>
-            <th>Conta</th><th class="l">Descrição</th><th>Bens</th><th>Aquisição</th><th>Depreciação</th><th>Valor atual</th>
+            <th>Conta</th><th class="l">Descrição</th><th>Qtde. bens</th><th>Vl. aquisição</th><th>Vl. depreciação</th><th>Valor atual</th>
           </tr></thead>
           <tbody></tbody>
         </table></div>
@@ -439,7 +439,7 @@ body.pia-sig{overflow:hidden}body.pia-sig>*:not(#piaSig):not(#piaWm){visibility:
     </div>
     <div class="pivot-wrap tall"><table class="pivot" id="tb-obrig">
       <thead><tr>
-        <th><button data-k="casa">Casa</button></th>
+        <th><button data-k="casa">Código</button></th>
         <th class="l"><button data-k="nome_casa">Casa de oração</button></th>
         <th><button data-k="setor">Setor</button></th>
         <th class="c"><button data-k="pulpito">Tribuna</button></th>
@@ -490,8 +490,8 @@ body.pia-sig{overflow:hidden}body.pia-sig>*:not(#piaSig):not(#piaWm){visibility:
         <th><button data-k="setor">Setor</button></th>
         <th class="c"><button data-k="terreno">Terreno</button></th>
         <th><button data-k="terreno_valor">Valor atual terreno</button></th>
-        <th class="c"><button data-k="edif">Edificação</button></th>
-        <th><button data-k="edif_valor">Valor atual edificação</button></th>
+        <th class="c"><button data-k="edif">Edificação/Construção</button></th>
+        <th><button data-k="edif_valor">Vl. atual edificação/construção</button></th>
         <th class="c"><button data-k="situacao">Situação</button></th>
       </tr></thead>
       <tbody></tbody>
@@ -677,11 +677,11 @@ body.pia-sig{overflow:hidden}body.pia-sig>*:not(#piaSig):not(#piaWm){visibility:
         <th><button data-k="codigo">Código</button></th>
         <th class="l" id="th-setor" hidden><button data-k="setor">Setor</button></th>
         <th class="l"><button data-k="nome">Bem</button></th>
-        <th class="l"><button data-k="conta_nome">Conta</button></th>
+        <th class="l"><button data-k="conta_full">Conta</button></th>
         <th class="l"><button data-k="dependencia">Dependência</button></th>
         <th class="l"><button data-k="fornecedor">Fornecedor</button></th>
         <th><button data-k="doc">Nº doc.</button></th>
-        <th><button data-k="dt">Aquisição</button></th>
+        <th><button data-k="dt">Data aquisição</button></th>
         <th><button data-k="vl_aquisicao">Vl. aquisição</button></th>
         <th><button data-k="vl_deprec">Vl. deprec.</button></th>
         <th><button data-k="vl_atual">Vl. atual</button></th>
@@ -898,7 +898,7 @@ const sortRows = (rows, s) => rows.slice().sort((a, b) => {
 });
 
 const tbConta = document.getElementById('tb-conta'), tbCasa = document.getElementById('tb-casa'), tbDet = document.getElementById('tb-det');
-const NONNUM = new Set(['casa', 'nome_casa', 'setor', 'conta', 'conta_nome', 'situacao', 'terreno', 'edif', 'pulpito', 'banco', 'som', 'mic', 'orgao', 'vent', 'cad']);
+const NONNUM = new Set(['casa', 'nome_casa', 'setor', 'conta', 'conta_nome', 'conta_full', 'situacao', 'terreno', 'edif', 'pulpito', 'banco', 'som', 'mic', 'orgao', 'vent', 'cad']);
 function setSort(tbl, name) {
   tbl.querySelector('thead').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-k]'); if (!b) return;
@@ -1231,7 +1231,7 @@ function drawBens() {
   const tb = tbl.tBodies[0]; tb.replaceChildren();
   const regional = setorSel === 'Regional';
   document.getElementById('th-setor').hidden = !regional;
-  const cols = [['codigo'], ...(regional ? [['setor', 1]] : []), ['nome', 1], ['conta_nome', 1], ['dependencia', 1], ['fornecedor', 1], ['doc'], ['dt', 0, fdate], ['vl_aquisicao', 0, (v) => brl.format(+v)], ['vl_deprec', 0, (v) => brl.format(+v)], ['vl_atual', 0, (v) => brl.format(+v)], ['status']];
+  const cols = [['codigo'], ...(regional ? [['setor', 1]] : []), ['nome', 1], ['conta_full', 1], ['dependencia', 1], ['fornecedor', 1], ['doc'], ['dt', 0, fdate], ['vl_aquisicao', 0, (v) => brl.format(+v)], ['vl_deprec', 0, (v) => brl.format(+v)], ['vl_atual', 0, (v) => brl.format(+v)], ['status']];
   for (const r of slice) {
     const tr = document.createElement('tr'); tr.dataset.key = encodeURIComponent(r.id);
     for (const [f, l, fm] of cols) {
@@ -1722,7 +1722,7 @@ async function entrar() {
   S.setores = (all || []).filter((s) => p.papel !== 'usuario' || p.todos_setores || mine.has(s.id));
   S.permitidos = new Set(S.setores.map((s) => SETORES[s.id] || s.nome));
   const {data: cs} = await sb.from('casas').select('casa,nome_casa').limit(2000);
-  S.casas = {}; (cs || []).forEach((c) => { S.casas[c.casa] = c.nome_casa; });
+  S.casas = {}; (cs || []).forEach((c) => { S.casas[String(c.casa).replace(/^[A-Z]{2}\s+/, '').trim()] = c.nome_casa; });
   if (S.sigilo) return abrirPainel();
   viewSigilo();
 }
@@ -1761,7 +1761,7 @@ async function carregarDados() {
   for (const rows of partes) for (const r of rows) {
     const n = (vistos.get(r.setor + '|' + r.codigo) || 0) + 1; vistos.set(r.setor + '|' + r.codigo, n);
     const conta = contaCod(r.conta);
-    bens.push({id: n > 1 ? r.codigo + ' (' + n + ')' : r.codigo, setor: SETORES[r.setor] || r.setor, casa: r.casa, nome_casa: S.casas[r.casa] || r.casa, codigo: r.codigo, nome: r.nome, conta, conta_nome: CONTAS[conta] || ('Conta ' + conta), dependencia: r.dependencia, fornecedor: r.fornecedor, doc: r.doc, dt: r.dt, vl_aquisicao: +r.vl_aquisicao, vl_deprec: +r.vl_deprec, vl_atual: +r.vl_atual, status: r.status});
+    bens.push({id: n > 1 ? r.codigo + ' (' + n + ')' : r.codigo, setor: SETORES[r.setor] || r.setor, casa: r.casa, nome_casa: S.casas[r.casa] || r.casa, codigo: r.codigo, nome: r.nome, conta, conta_nome: CONTAS[conta] || ('Conta ' + conta), conta_full: conta + ' - ' + (CONTAS[conta] || ('Conta ' + conta)), dependencia: r.dependencia, fornecedor: r.fornecedor, doc: r.doc, dt: r.dt, vl_aquisicao: +r.vl_aquisicao, vl_deprec: +r.vl_deprec, vl_atual: +r.vl_atual, status: r.status});
   }
   const bx = await pagina(() => sb.from('baixas').select('setor,dados,uploads!inner(vigente)').in('setor', sids).eq('uploads.vigente', true).order('id'));
   const baixas = bx.map((x) => { const d = x.dados || {}, conta = contaCod(d.conta); return {setor: SETORES[x.setor] || x.setor, casa: d.casa, nome_casa: S.casas[d.casa] || d.casa, codigo: d.codigo, nome: d.nome, conta, conta_nome: CONTAS[conta] || ('Conta ' + conta), dependencia: d.dependencia, fornecedor: d.fornecedor, doc: d.doc, dt_baixa: d.dt_baixa, mes: (d.dt_baixa || '').slice(0, 7), vl_aquisicao: +d.vl_aquisicao, vl_deprec: +d.vl_deprec, vl_atual: +d.vl_atual}; });
